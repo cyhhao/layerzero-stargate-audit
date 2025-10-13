@@ -7,22 +7,22 @@
 本仓库包含对LayerZero V2跨链消息协议及Stargate V2跨链桥的全面安全审计。审计采用白盒测试方法，结合源码分析、链上查询和架构评估，识别了多个关键安全风险。
 
 ### 🎯 审计范围
-- **LayerZero EndpointV2**: 跨链消息传递核心协议
-- **ULN (Ultra Light Node)**: 消息验证库
-- **DVN (Decentralized Verifier Network)**: 去中心化验证网络
-- **Stargate V2**: 基于LayerZero的跨链资产桥（初步分析）
+- **LayerZero EndpointV2**: 跨链消息传递核心协议 ✅
+- **ULN (Ultra Light Node)**: 消息验证库 ✅
+- **DVN (Decentralized Verifier Network)**: 去中心化验证网络（含链下服务）✅
+- **Stargate V2**: 基于LayerZero的跨链资产桥（完整审计）✅
 
 ### 🔍 关键发现
 
 | 严重程度 | 数量 | 主要问题 |
 |---------|------|---------|
-| 🔴 Critical | 3 | Owner中心化、DVN信任模型、DVN串通风险 |
-| 🟡 Medium | 4 | Delegate权限、Grace Period、Confirmation数量、配置复杂性 |
-| 🟢 Low | 3 | 乱序验证DoS、Executor信任、Permissionless提交 |
+| 🔴 Critical | 7 | Owner中心化、DVN信任模型、DVN串通风险、默认配置薄弱、Google DVN身份不明、Stargate Owner权限、Credit耗尽风险 |
+| 🟡 Medium | 7 | Delegate权限、Grace Period、Confirmation数量、配置复杂性、DVN单点失败、Treasurer权限、FeeLib信任 |
+| 🟢 Low | 4 | 乱序验证DoS、Executor信任、Permissionless提交、Planner权限 |
 
-### ⭐ 总体评分: 3/5
+### ⭐ 总体评分: 2.5/5
 
-LayerZero V2展现了成熟的跨链架构设计，但安全性高度依赖于Owner治理和DVN配置。
+LayerZero V2展现了成熟的跨链架构设计，但安全性高度依赖于Owner治理和DVN配置。**Phase 2审计发现默认DVN配置存在严重中心化风险，Stargate存在流动性锁定风险，建议用户谨慎评估后使用。**
 
 ---
 
@@ -35,7 +35,9 @@ layerzero-stargate-audit/
 ├── stargate-v2/                       # Stargate V2源码（git submodule）
 ├── analysis/                          # 详细技术分析
 │   ├── 01-EndpointV2-Analysis.md      # EndpointV2深度分析
-│   └── 02-ULN-DVN-Analysis.md         # ULN和DVN机制分析
+│   ├── 02-ULN-DVN-Analysis.md         # ULN和DVN机制分析
+│   ├── 03-DVN-OffChain-Analysis.md    # DVN链下服务完整审计
+│   └── 04-Stargate-Complete-Audit.md  # Stargate V2完整审计
 ├── reports/                           # 审计报告
 │   └── LayerZero-Stargate-Security-Audit-Report.md  # 完整审计报告
 ├── contracts/                         # 相关合约地址和ABI
@@ -166,6 +168,20 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
    - Push-based vs Pull-based DVN
    - 信任假设和攻击场景
 
+4. **[DVN链下服务审计](./analysis/03-DVN-OffChain-Analysis.md)** - DVN链下架构完整分析 ⭐ NEW
+   - 6组件链下工作流程详解
+   - 35+ DVN生态系统现状
+   - 默认UlnConfig链上查询结果
+   - 6个安全风险（3个Critical，2个Medium，1个Low）
+   - Google Cloud DVN运营者调查
+
+5. **[Stargate V2完整审计](./analysis/04-Stargate-Complete-Audit.md)** - Stargate完整合约审计 ⭐ NEW
+   - 合约架构和继承关系
+   - 流动性池和Bus机制分析
+   - 7个安全发现（2个Critical，3个Medium，2个Low）
+   - 经济模型和费用机制
+   - 与LayerZero集成安全性
+
 ### 关键章节导航
 - [1. 协议架构](./reports/LayerZero-Stargate-Security-Audit-Report.md#1-layerzero协议架构)
 - [2. 核心合约分析](./reports/LayerZero-Stargate-Security-Audit-Report.md#2-核心合约分析)
@@ -205,7 +221,7 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
 
 ## 📈 审计状态
 
-### ✅ 已完成
+### ✅ Phase 1 完成（2025-10-13）
 - [x] LayerZero EndpointV2核心逻辑分析
 - [x] MessageLibManager和消息库机制
 - [x] ULN配置和DVN验证模型
@@ -213,17 +229,37 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
 - [x] 消息生命周期和安全机制
 - [x] Stargate V2基本架构调研
 
-### 🚧 进行中
-- [ ] DVN实际运营情况调查
-- [ ] 默认UlnConfig链上查询
-- [ ] Stargate Pool完整审计
+### ✅ Phase 2 完成（2025-10-13）⭐ NEW
+- [x] **DVN链下服务完整审计**
+  - [x] DVN链下架构6组件分析
+  - [x] 35+ DVN生态系统调查
+  - [x] 默认UlnConfig链上查询（Ethereum→BSC/Arbitrum/Optimism）
+  - [x] Google Cloud DVN运营者调查
+  - [x] 6个安全风险识别
+- [x] **Stargate Pool完整审计**
+  - [x] StargatePool.sol和StargateBase.sol深度分析
+  - [x] 流动性管理和Credit机制
+  - [x] Bus模式和费用机制
+  - [x] 7个安全发现（含2个Critical风险）
+  - [x] 与LayerZero集成安全性评估
 
-### ⏳ 待完成
+### 🔍 关键发现总结（Phase 2）
+**DVN链下服务**:
+- ⚠️ **Critical**: 默认配置仅使用2个required DVNs（LayerZero Labs + Google Cloud），无optional DVNs
+- ⚠️ **Critical**: Google Cloud DVN运营者身份不明确（LayerZero团队 vs Google官方）
+- 🟡 **Medium**: DVN链下服务单点失败可能导致消息传递停滞
+
+**Stargate V2**:
+- ⚠️ **Critical**: Owner拥有广泛权限（setFeeLib, planner, treasurer, withdrawFee）
+- ⚠️ **Critical**: Credit耗尽可导致合法赎回失败，流动性被锁定
+- 🟡 **Medium**: Treasurer可提取所有累积费用
+
+### ⏳ 待完成（Phase 3+）
 - [ ] Executor机制深度分析
 - [ ] 形式化验证
-- [ ] 经济模型和费用机制
-- [ ] Stargate与LayerZero集成安全性
+- [ ] Stargate经济模型长期可持续性分析
 - [ ] 历史事件和攻击案例研究
+- [ ] CryptoEconomic DVN Framework评估
 
 ---
 
@@ -304,10 +340,10 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
 本审计报告由独立安全研究人员提供，旨在识别潜在安全风险。**本报告不构成投资建议**。
 
 **局限性**:
-1. 审计基于特定时间点的代码和配置
-2. 部分审计项未完成（DVN链下服务、Stargate Pool）
-3. 未进行形式化验证和长期压力测试
-4. 依赖公开信息，部分运营细节无法验证
+1. 审计基于特定时间点的代码和配置（2025-10-13）
+2. 未进行形式化验证和长期压力测试
+3. 依赖公开信息，部分运营细节无法完全验证（如Google Cloud DVN实际运营方）
+4. Phase 2完成了DVN链下服务和Stargate Pool审计，但仍有待深入项目（见"待完成"章节）
 
 用户应自行评估风险，持续关注协议更新。大额资金应谨慎使用，分散风险。
 
@@ -332,8 +368,14 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
 
 ---
 
-**报告版本**: v1.0
+**报告版本**: v2.0
 **审计日期**: 2025-10-13
-**审计状态**: Phase 1完成，持续更新中
+**审计状态**: Phase 1 & Phase 2完成 ✅
 
-**下一步**: Phase 2 - DVN深度调查 | Phase 3 - Stargate完整审计 | Phase 4 - 形式化验证
+**Phase 2 重大更新**:
+- ✅ DVN链下服务完整审计（03-DVN-OffChain-Analysis.md）
+- ✅ Stargate V2完整审计（04-Stargate-Complete-Audit.md）
+- ✅ 默认UlnConfig链上查询（发现仅2个required DVNs）
+- ✅ 识别7个额外Critical/Medium风险
+
+**下一步**: Phase 3 - Executor机制 | Phase 4 - 形式化验证 | Phase 5 - 经济模型长期分析
