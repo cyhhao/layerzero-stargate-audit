@@ -285,12 +285,30 @@ function redeem(uint256 _amountLD) external {
 
 ### 文档翻译状态
 
-| 文档 | 原文链接 | 中文翻译 | 状态 | 译者 |
-|------|---------|---------|------|------|
-| LayerZero V2 Overview | [链接](https://docs.layerzero.network/v2/home/v2-overview) | `translations/layerzero-v2-overview-zh.md` | 待完成 | - |
-| Security Model | [链接](https://docs.layerzero.network/v2/home/protocol/security) | `translations/layerzero-security-zh.md` | 待完成 | - |
-| Stargate V2 Overview | [链接](https://docs.stargate.finance/) | `translations/stargate-v2-overview-zh.md` | 待完成 | - |
-| Credit System | [链接](https://stargateprotocol.gitbook.io/stargate/v2-developer-docs/integrate-with-stargate/credit-allocation-system) | `translations/stargate-credit-system-zh.md` | 待完成 | - |
+| 文档 | 原文链接 | 中文翻译 | 状态 | 译者 | 更新日期 |
+|------|---------|---------|------|------|---------|
+| **LayerZero V2 核心概念** | [官方文档](https://docs.layerzero.network/v2) | [layerzero-v2-core-concepts-zh.md](translations/layerzero-v2-core-concepts-zh.md) | ✅ **已完成** | Claude | 2025-10-14 |
+| **Stargate V2 核心概念** | [官方文档](https://docs.stargate.finance/) | [stargate-v2-core-concepts-zh.md](translations/stargate-v2-core-concepts-zh.md) | ✅ **已完成** | Claude | 2025-10-14 |
+
+**已翻译内容包括**:
+
+#### LayerZero V2 核心概念 (70+ KB, 2000+ 行)
+- ✅ 协议概述和架构
+- ✅ 核心组件详解 (EndpointV2, MessageLib, DVN)
+- ✅ 消息生命周期完整流程
+- ✅ M-of-N验证模型
+- ✅ 安全模型和信任假设
+- ✅ 配置指南和最佳实践
+- ✅ 代码示例 (Solidity + Python)
+
+#### Stargate V2 核心概念 (60+ KB, 1500+ 行)
+- ✅ IGF (即时保证最终性) 详解
+- ✅ Credit机制和Bus机制
+- ✅ 费用结构和FeeLib
+- ✅ 统一流动性池原理
+- ✅ 完整跨链流程
+- ✅ 安全风险和缓解方案
+- ✅ LP和开发者使用指南
 
 ---
 
