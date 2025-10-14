@@ -289,6 +289,7 @@ function redeem(uint256 _amountLD) external {
 |------|---------|---------|------|------|---------|
 | **LayerZero V2 核心概念** | [官方文档](https://docs.layerzero.network/v2) | [layerzero-v2-core-concepts-zh.md](translations/layerzero-v2-core-concepts-zh.md) | ✅ **已完成** | Claude | 2025-10-14 |
 | **Stargate V2 核心概念** | [官方文档](https://docs.stargate.finance/) | [stargate-v2-core-concepts-zh.md](translations/stargate-v2-core-concepts-zh.md) | ✅ **已完成** | Claude | 2025-10-14 |
+| **OApp 开发指南** | [官方文档](https://docs.layerzero.network/v2/developers/evm/oapp/overview) | [OAPP-DEVELOPMENT-GUIDE.md](OAPP-DEVELOPMENT-GUIDE.md) | ✅ **已完成** | Claude | 2025-10-14 |
 
 **已翻译内容包括**:
 
@@ -309,6 +310,37 @@ function redeem(uint256 _amountLD) external {
 - ✅ 完整跨链流程
 - ✅ 安全风险和缓解方案
 - ✅ LP和开发者使用指南
+
+#### OApp 开发指南 (100+ KB, 1800+ 行)
+- ✅ OApp 核心概念和架构
+- ✅ 基础 OApp 开发（含完整代码示例）
+- ✅ OFT (跨链同质化代币) 完整指南
+  - 标准 OFT 实现
+  - OFTAdapter 适配现有 ERC20
+  - 精度转换机制（Decimal Conversion）
+  - Debit & Credit 机制详解
+  - 带手续费的高级 OFT
+- ✅ ONFT (跨链非同质化代币) 完整指南
+  - ONFT721 标准实现
+  - ONFT Adapter 适配现有 NFT
+  - Burn & Mint 机制
+  - Lock & Unlock 机制
+- ✅ 高级功能
+  - Message Composing (消息组合)
+  - Rate Limiting (速率限制)
+  - Ordered Messaging (有序消息)
+  - ABA Messaging (Ping-Pong)
+- ✅ 安全最佳实践
+  - Peer 验证
+  - Executor 验证
+  - 重入保护
+  - 金额验证
+  - DVN 配置推荐
+- ✅ 常见陷阱与解决方案（6个典型场景）
+- ✅ 部署与配置指南
+  - Hardhat/Foundry 部署脚本
+  - Peer 和 DVN 配置
+  - LayerZero CLI 使用
 
 ---
 

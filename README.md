@@ -51,7 +51,10 @@ layerzero-stargate-audit/
 ├── docs/                              # 项目文档归档 ⭐ NEW
 │   ├── DOCUMENTATION_INDEX.md         # 官方文档索引和归档
 │   ├── GLOSSARY.md                    # 术语表(中英文对照)
-│   └── translations/                  # 文档中文翻译(待完成)
+│   ├── OAPP-DEVELOPMENT-GUIDE.md      # OApp开发完整指南 ⭐ NEW
+│   └── translations/                  # 文档中文翻译
+│       ├── layerzero-v2-core-concepts-zh.md   # LayerZero核心概念
+│       └── stargate-v2-core-concepts-zh.md    # Stargate核心概念
 ├── contracts/                         # 相关合约地址和ABI
 ├── diagrams/                          # 架构图和流程图（待补充）
 ├── CHANGELOG.md                       # 版本更新日志 ⭐ NEW
@@ -391,6 +394,13 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
 ### 项目文档归档 ⭐ NEW
 - [📚 文档索引](./docs/DOCUMENTATION_INDEX.md) - LayerZero & Stargate 官方文档快照 (2025-10-14)
 - [📖 术语表](./docs/GLOSSARY.md) - 200+ 术语中英文对照
+- [🛠️ OApp开发指南](./docs/OAPP-DEVELOPMENT-GUIDE.md) - **完整开发教程**（100+ KB，1800+ 行）⭐ NEW
+  - OApp/OFT/ONFT 全面开发指南
+  - 包含 20+ 完整代码示例
+  - 安全最佳实践和常见陷阱
+  - Hardhat/Foundry 部署脚本
+- [🌐 LayerZero V2 核心概念](./docs/translations/layerzero-v2-core-concepts-zh.md) - 中文翻译（2000+ 行）
+- [🌉 Stargate V2 核心概念](./docs/translations/stargate-v2-core-concepts-zh.md) - 中文翻译（1500+ 行）
 - [🔗 审计报告URL](./reference-audits/AUDIT_REPORTS_URLS.md) - 第三方审计在线链接
 - [📄 审计摘要](./AUDIT_SUMMARY.md) - 快速阅读版审计报告
 - [📝 更新日志](./CHANGELOG.md) - 版本演进历史
