@@ -150,37 +150,74 @@ cast call 0x1a44076050125825900e736c501f859c50fE728c "owner()(address)" \
 ## 📄 详细报告
 
 ### 核心文档
-1. **[完整审计报告](./reports/LayerZero-Stargate-Security-Audit-Report.md)** - 综合性安全审计报告
+
+**🎯 推荐阅读顺序**:
+1. 本README (项目概览)
+2. 专业安全审计报告 (完整漏洞分析)
+3. Phase 1-2分析文档 (技术深度细节)
+
+---
+
+1. **[专业安全审计报告](./reports/Professional-Security-Audit-Report.md)** ⭐⭐⭐ **强烈推荐**
+   - 📋 按照行业标准编写的完整审计报告
+   - 🔍 **合约核心功能梳理**: EndpointV2/ULN/Stargate完整分析
+   - 🔐 **访问控制分析**: Owner/Delegate/角色权限详解
+   - 💰 **资金流分析**: 正常流程+异常场景+攻击路径
+   - 🏗️ **关联合约分析**: 依赖关系和信任假设
+   - 🛡️ **安全漏洞分析**:
+     - SWC注册表漏洞检查 (SWC-101~128)
+     - OpenZeppelin Ethernaut常见漏洞
+     - Damn Vulnerable DeFi示例漏洞
+     - 区块链特定漏洞 (Front-running, MEV, Flash Loan)
+     - 密码学漏洞 (签名重放, ecrecover)
+   - 📊 **发现清单**: 7 Critical | 7 Medium | 4 Low | 5 Info
+   - 🔧 **详细修复方案**: 每个漏洞的具体代码修复
+
+2. **[Phase 1-2综合审计报告](./reports/LayerZero-Stargate-Security-Audit-Report.md)** - 阶段性审计总结
    - 执行摘要和风险总结
    - 架构深度分析
-   - 10个安全发现（3个Critical，4个Medium，3个Low）
+   - Phase 1-2发现汇总
    - 缓解建议和改进路线图
 
-2. **[EndpointV2深度分析](./analysis/01-EndpointV2-Analysis.md)** - 核心协议合约分析
+3. **[EndpointV2深度分析](./analysis/01-EndpointV2-Analysis.md)** - 核心协议合约分析
    - 消息发送/验证/执行流程
    - 权限管理（Owner、Delegate）
    - 消息库管理（MessageLibManager）
    - 安全机制和潜在风险
 
-3. **[ULN & DVN机制分析](./analysis/02-ULN-DVN-Analysis.md)** - 验证层深度剖析
+3. **[ULN & DVN机制分析](./analysis/02-ULN-DVN-Analysis.md)** - 验证层深度剖析 (Phase 1)
    - UlnConfig配置结构和语义
    - DVN验证模型（M-of-N）
    - Push-based vs Pull-based DVN
    - 信任假设和攻击场景
 
-4. **[DVN链下服务审计](./analysis/03-DVN-OffChain-Analysis.md)** - DVN链下架构完整分析 ⭐ NEW
+4. **[DVN链下服务审计](./analysis/03-DVN-OffChain-Analysis.md)** - DVN链下架构完整分析 (Phase 2) ⭐
    - 6组件链下工作流程详解
    - 35+ DVN生态系统现状
    - 默认UlnConfig链上查询结果
    - 6个安全风险（3个Critical，2个Medium，1个Low）
    - Google Cloud DVN运营者调查
 
-5. **[Stargate V2完整审计](./analysis/04-Stargate-Complete-Audit.md)** - Stargate完整合约审计 ⭐ NEW
+5. **[Stargate V2完整审计](./analysis/04-Stargate-Complete-Audit.md)** - Stargate完整合约审计 (Phase 2) ⭐
    - 合约架构和继承关系
    - 流动性池和Bus机制分析
    - 7个安全发现（2个Critical，3个Medium，2个Low）
    - 经济模型和费用机制
    - 与LayerZero集成安全性
+
+---
+
+### 📊 审计方法对比
+
+| 维度 | Phase 1-2报告 | 专业审计报告 |
+|-----|-------------|------------|
+| **深度** | 架构和设计分析 | 代码级漏洞分析 |
+| **覆盖** | LayerZero + Stargate概览 | 合约函数逐个分析 |
+| **漏洞检测** | 高层风险识别 | SWC/Ethernaut/DeFi漏洞库全面检查 |
+| **修复方案** | 建议性指导 | 具体代码修复示例 |
+| **目标读者** | 协议研究者/用户 | 智能合约开发者/安全工程师 |
+
+**建议**: 协议用户先读Phase 1-2报告了解整体风险,开发者务必阅读专业审计报告了解具体漏洞和修复方案。
 
 ### 关键章节导航
 - [1. 协议架构](./reports/LayerZero-Stargate-Security-Audit-Report.md#1-layerzero协议架构)
