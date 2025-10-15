@@ -485,14 +485,21 @@ ENS: 无
 **问题描述**:
 LayerZero的安全性**完全依赖**于DVN的诚实性和独立性。如果DVN被攻破或串通，可以伪造任意跨链消息。
 
-**信任假设**:
+**X of Y of N 配置模型**:
 
-| 配置 | 信任假设 | 攻击阈值 |
-|-----|---------|---------|
-| 1 required DVN | 完全信任该DVN | 1个DVN被攻破 |
-| 2 required DVNs | 完全信任两者 | ANY 1个DVN被攻破 |
-| N required DVNs | 完全信任所有 | ANY 1个DVN被攻破 |
-| M-of-N optional DVNs | 信任至少M个 | 超过(N-M)个被攻破 |
+LayerZero V2 使用 **X of Y of N** 模型，其中：
+- **X** = `requiredDVNCount` - **所有** Required DVNs 必须验证（AND 关系）
+- **Y** = `optionalDVNThreshold` - Optional DVNs 中需要验证的数量
+- **N** = `optionalDVNCount` - Optional DVNs 的总池子
+
+**验证条件**: `(所有 X 个 Required DVNs) AND (N 个 Optional DVNs 中的至少 Y 个)`
+
+| 配置示例 | 验证条件 | 攻击阈值 |
+|---------|---------|---------|
+| X=1, Y=0, N=0 | 1个Required DVN | 攻破该1个DVN |
+| X=2, Y=0, N=0 | 2个Required DVNs都验证 | 攻破这2个DVN中的**任意1个** |
+| X=2, Y=1, N=3 | 2个Required都验证 **AND** 3个Optional中至少1个 | 攻破2个Required中**任意1个** OR 攻破3个Optional **全部** |
+| X=1, Y=2, N=5 | 1个Required验证 **AND** 5个Optional中至少2个 | 攻破1个Required OR 攻破5个Optional中的**至少4个** |
 
 **攻击场景**:
 ```
@@ -509,19 +516,22 @@ LayerZero的安全性**完全依赖**于DVN的诚实性和独立性。如果DVN�
 7. 结果: 目标链OApp收到恶意消息
 ```
 
-**真实配置示例** (需要链上查询确认):
+**真实配置示例** (基于 Phase 2 链上查询):
 ```
-假设默认配置 (Ethereum → BSC):
-requiredDVNs: [LayerZero Labs]
-optionalDVNs: [Google Cloud, Chainlink]
-optionalDVNThreshold: 1
+实际默认配置 (Ethereum → BSC):
+requiredDVNCount: 2 (X=2)
+requiredDVNs: [LayerZero Labs, Google Cloud]
+optionalDVNCount: 0 (N=0)
+optionalDVNThreshold: 0 (Y=0)
+optionalDVNs: []
 
-验证条件: LayerZero Labs DVN必须验证 AND (Google Cloud OR Chainlink)
+配置模型: "2 of 0 of 0" (仅 Required DVNs)
+验证条件: LayerZero Labs **AND** Google Cloud 都必须验证
 
 安全分析:
-- 如果LayerZero Labs DVN被攻破 → 协议失效
-- 如果Google Cloud AND Chainlink都被攻破 → 协议失效
-- 单独攻破Google Cloud或Chainlink → 协议仍安全
+- ❌ 攻破 LayerZero Labs **OR** Google Cloud **任意一个** → 协议失效
+- ❌ 没有 Optional DVNs 提供冗余
+- ❌ 高度中心化风险（仅2个DVN，且身份存疑）
 ```
 
 **DVN独立性问题**:
@@ -564,14 +574,42 @@ DVN串通成本:
    - 引入Slashing机制（作恶被罚没）
    - 引入争议解决机制
 
-4. **推荐配置**:
-   ```
-   requiredDVNs: [LayerZero Labs, Chainlink, Nethermind]
-   optionalDVNs: [Google Cloud, Polyhedra, BCW, Axelar, Switchboard]
-   optionalDVNThreshold: 3
+4. **推荐安全配置**:
 
-   验证条件: (LZ Labs AND Chainlink AND Nethermind) AND (至少3个optional DVNs)
-   安全性: 需要攻破3个required DVNs OR (3个required + 3个optional)
+   **方案A: 高安全性配置（推荐）**
+   ```
+   requiredDVNCount: 1 (X=1)
+   requiredDVNs: [LayerZero Labs]
+   optionalDVNCount: 5 (N=5)
+   optionalDVNs: [Google Cloud, Chainlink, Nethermind, Polyhedra, Horizen]
+   optionalDVNThreshold: 3 (Y=3)
+
+   配置模型: "1 of 3 of 5"
+   验证条件: LayerZero Labs **AND** (5个Optional中至少3个)
+
+   攻击阈值:
+   - 需要攻破 LayerZero Labs (1个) OR
+   - 需要攻破 5个Optional中的至少3个
+
+   优势: 即使LayerZero Labs离线，仍需3个Optional DVNs验证，提供更好的冗余
+   ```
+
+   **方案B: 平衡配置**
+   ```
+   requiredDVNCount: 2 (X=2)
+   requiredDVNs: [LayerZero Labs, Chainlink]
+   optionalDVNCount: 5 (N=5)
+   optionalDVNs: [Google Cloud, Nethermind, Polyhedra, Horizen, BCW]
+   optionalDVNThreshold: 2 (Y=2)
+
+   配置模型: "2 of 2 of 5"
+   验证条件: (LayerZero Labs **AND** Chainlink) **AND** (5个Optional中至少2个)
+
+   攻击阈值:
+   - 需要攻破 LayerZero Labs OR Chainlink (任意1个) OR
+   - 需要攻破 5个Optional中的至少4个
+
+   优势: Required DVNs提供基础安全，Optional DVNs提供额外冗余
    ```
 
 ### 3.3 🔴 CRITICAL: DVN串通风险
@@ -1133,24 +1171,40 @@ Stargate V2 = LayerZero V2 + 流动性池 + 跨链资产桥接
 
 ```bash
 # Ethereum → BSC/Arbitrum/Optimism
+配置模型: "2 of 0 of 0" (X=2, Y=0, N=0)
+
 Confirmations: 20
-Required DVNs: 2
+Required DVN Count (X): 2
+Required DVNs:
   - 0x589dedbd617e0cbcb916a9223f4d1300c294236b (LayerZero Labs)
   - 0xd56e4eab23cb81f43168f9f45211eb027b9ac7cc (Google Cloud)
-Optional DVNs: 0
-Optional Threshold: 0
+Optional DVN Count (N): 0
+Optional DVN Threshold (Y): 0
+Optional DVNs: []
+
+验证条件: LayerZero Labs **AND** Google Cloud 都必须验证
 ```
 
-**风险**:
-- 仅需攻破2个DVN中的ANY 1个即可伪造消息
-- 无optional DVNs作为额外安全层
-- 影响所有使用默认配置的OApp（估计>90%）
+**风险分析（基于 X of Y of N 模型）**:
+- ❌ **攻击阈值极低**: 仅需攻破 LayerZero Labs **OR** Google Cloud **任意1个** 即可伪造消息
+  - Required DVNs 是 **AND** 关系，任意一个被攻破整个系统失效
+  - 这不是 "2-of-2" 多签安全模型！
+- ❌ **无冗余**: 没有 Optional DVNs 作为额外安全层
+- ❌ **影响范围广**: 所有使用默认配置的OApp（估计>90%）
+- ❌ **中心化风险**: Google Cloud DVN 运营方身份不明
 
-**推荐配置**（但实际未采用）:
+**推荐安全配置**（基于 X of Y of N 模型）:
+
+**方案A: "1 of 3 of 5" - 高安全性**
 ```
-Required DVNs: [LayerZero Labs, Chainlink, Nethermind] (3个独立实体)
-Optional DVNs: [Google, Polyhedra, BCW, Axelar, Switchboard] (5个)
-Optional Threshold: 3
+Required DVN Count (X): 1
+Required DVNs: [LayerZero Labs]
+Optional DVN Count (N): 5
+Optional DVNs: [Google Cloud, Chainlink, Nethermind, Polyhedra, Horizen]
+Optional DVN Threshold (Y): 3
+
+验证条件: LayerZero Labs **AND** (5个Optional中至少3个)
+攻击阈值: 需攻破 LayerZero Labs (1个) OR 5个Optional中的至少3个
 ```
 
 #### 🔴 CRITICAL: Google Cloud DVN运营者身份不明
