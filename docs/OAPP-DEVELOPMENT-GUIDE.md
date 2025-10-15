@@ -15,6 +15,7 @@
 3. [OFT (跨链同质化代币)](#oft-跨链同质化代币)
 4. [ONFT (跨链非同质化代币)](#onft-跨链非同质化代币)
 5. [高级功能](#高级功能)
+   - [lzRead: 跨链数据读取](#lzread-跨链数据读取) ⭐ NEW
 6. [安全最佳实践](#安全最佳实践)
 7. [常见陷阱与解决方案](#常见陷阱与解决方案)
 8. [部署与配置](#部署与配置)
@@ -1391,6 +1392,134 @@ contract PingPongOApp is OApp {
     receive() external payable {}
 }
 ```
+
+### 5. lzRead: 跨链数据读取 ⭐ NEW
+
+**详细文档**: [06-LzRead-Deep-Dive.md](../analysis/06-LzRead-Deep-Dive.md)
+
+**lzRead 简介**:
+lzRead 是 LayerZero V2 引入的创新功能，允许 OApp 从其他链**读取**历史链上数据，区别于传统的消息"推送"(Push)模型。
+
+**适用场景**:
+- ✅ **跨链价格聚合**: 从多条链读取 DEX 价格
+- ✅ **治理投票查询**: 读取其他链上的投票权重
+- ✅ **NFT所有权验证**: 验证源链 NFT 余额
+- ❌ **不适合高价值资产桥接**: 存在信任风险
+
+**基本用法示例**:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import { OAppRead } from "@layerzerolabs/oapp-evm/contracts/oapp/OAppRead.sol";
+
+/**
+ * @title PriceAggregatorOApp
+ * @dev 使用 lzRead 读取其他链上的价格数据
+ */
+contract PriceAggregatorOApp is OAppRead {
+    using OptionsBuilder for bytes;
+
+    // 存储读取到的价格
+    mapping(uint32 => uint256) public prices;
+
+    constructor(address _endpoint, address _delegate)
+        OAppRead(_endpoint, _delegate)
+        Ownable(_delegate)
+    {}
+
+    /**
+     * @notice 发起 lzRead 请求，读取目标链上的价格
+     * @param _srcEid 源链 ID（要读取数据的链）
+     * @param _priceOracle 源链上的价格 oracle 地址
+     * @param _blockNumber 要读取的区块高度
+     */
+    function requestPrice(
+        uint32 _srcEid,
+        address _priceOracle,
+        uint256 _blockNumber
+    ) external payable {
+        // 1. 构建 read 命令
+        EVMCallRequestV1[] memory readRequests = new EVMCallRequestV1[](1);
+        readRequests[0] = EVMCallRequestV1({
+            appCmdLabel: APP_CMD_LABEL_READ,
+            targetEid: _srcEid,
+            blockNumber: _blockNumber,
+            targets: _toAddressArray(_priceOracle),
+            cmd: abi.encode(
+                // 读取 oracle.getPrice() 函数
+                abi.encodeWithSignature("getPrice()")
+            )
+        });
+
+        // 2. 编码命令
+        bytes memory cmd = abi.encode(readRequests);
+
+        // 3. 构建选项
+        bytes memory options = OptionsBuilder
+            .newOptions()
+            .addExecutorLzReceiveOption(200000, 0);
+
+        // 4. 发送 lzRead 请求
+        _lzSend(
+            _srcEid,
+            cmd,
+            options,
+            MessagingFee(msg.value, 0),
+            payable(msg.sender)
+        );
+    }
+
+    /**
+     * @notice 接收 lzRead 响应
+     * @dev 由 LayerZero Endpoint 调用
+     */
+    function _lzReceive(
+        Origin calldata _origin,
+        bytes32 /*_guid*/,
+        bytes calldata _message,
+        address /*_executor*/,
+        bytes calldata /*_extraData*/
+    ) internal override {
+        // 解码返回的价格数据
+        (bytes[] memory results) = abi.decode(_message, (bytes[]));
+
+        // 解析第一个结果
+        uint256 price = abi.decode(results[0], (uint256));
+
+        // 存储价格
+        prices[_origin.srcEid] = price;
+
+        emit PriceReceived(_origin.srcEid, price);
+    }
+
+    function _toAddressArray(address _addr) internal pure returns (address[] memory) {
+        address[] memory arr = new address[](1);
+        arr[0] = _addr;
+        return arr;
+    }
+
+    event PriceReceived(uint32 indexed srcEid, uint256 price);
+}
+```
+
+**⚠️ lzRead 安全警告**:
+
+由于 lzRead 存在以下 Critical 风险，**不建议用于高价值场景**：
+
+1. 🔴 **Pull DVN 高度中心化**: 目前仅 2 个 Pull DVN（LayerZero Labs + Nethermind）
+2. 🔴 **Compute 结果不可验证**: 链下计算结果无法在链上验证
+3. 🔴 **历史状态 Reorg 风险**: 链重组可能导致读取的状态变化
+4. 🟡 **跨链时钟同步问题**: 不同链的 block.number 增长速度不同
+
+**最佳实践**:
+- ✅ 仅用于低风险场景（如统计、仪表盘）
+- ✅ 等待足够的 confirmations 后再读取（Ethereum: 64+ blocks）
+- ✅ 实施 fallback 机制（lzRead 失败时使用 oracle）
+- ❌ 禁止在资产桥接、清算触发等关键功能中使用
+
+**详细文档**: 完整的 lzRead 工作原理、风险分析和缓解措施请参考 [06-LzRead-Deep-Dive.md](../analysis/06-LzRead-Deep-Dive.md)
 
 ---
 
