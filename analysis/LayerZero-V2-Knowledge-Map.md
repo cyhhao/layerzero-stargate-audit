@@ -353,23 +353,253 @@ struct UlnConfig {
 - "2 of 2 of 5": 2个Required + 5个Optional中至少2个
 ```
 
-#### Type 3: Read Library (ReadLib1002)
-**职责**:
-- 支持 Pull Messaging (lzRead)
-- 从其他链读取历史状态
-- 存储 cmdHash（防止 reorg）
+#### Type 3: Read Library (ReadLib1002) - 全链查询 ⭐
+
+**定义**:
+ReadLib1002 是 LayerZero V2 的 **Pull 模式消息库**，用于实现 **lzRead (全链查询)** 功能，允许 OApp 从其他链**读取**历史链上状态。
+
+**核心职责**:
+- 支持 Pull Messaging (lzRead/全链查询)
+- 从其他链读取历史状态（storage slots）
+- 存储 cmdHash（防止 reorg 和请求伪造）
 - 与 Pull DVN 交互
+- 支持 Compute 功能（可选的链下计算）
 
-**lzRead 特性**:
+**Pull vs Push 模型对比**:
 ```
-Pull Model vs Push Model:
-- Push: 源链主动推送消息
-- Pull: 目标链主动读取源链数据
+┌─────────────────────────────────────────────────────────┐
+│ Push Model (SendUln302 + ReceiveUln302)                │
+│                                                         │
+│ 源链 (Chain A)                    目标链 (Chain B)      │
+│ OApp A ──send()──▶ Endpoint ──▶ DVN ──▶ Endpoint ──▶ OApp B
+│ (主动推送)                         (被动接收)            │
+│                                                         │
+│ 数据流向: A → B                                         │
+│ 触发方: 源链 OApp                                       │
+│ 用途: 跨链消息传递、资产转移                              │
+└─────────────────────────────────────────────────────────┘
 
-Use Cases:
-- 跨链价格聚合
-- 治理投票查询
-- NFT 所有权验证
+┌─────────────────────────────────────────────────────────┐
+│ Pull Model (ReadLib1002) - lzRead/全链查询              │
+│                                                         │
+│ 目标链 (Chain B)                  源链 (Chain A)        │
+│ OApp B ──lzRead()──▶ ReadLib ──▶ Pull DVN ──▶ 读取 Chain A 状态
+│ (主动请求)                         (历史数据)            │
+│                                                         │
+│ 数据流向: B ← A (反向)                                  │
+│ 触发方: 目标链 OApp                                     │
+│ 用途: 查询历史状态、价格聚合、治理投票                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**lzRead 工作流程**:
+```
+1. 目标链 (Chain B) OApp 调用 endpoint.lzRead()
+   ├─ 指定要读取的源链 (srcEid)
+   ├─ 指定要读取的区块高度 (blockNumber)
+   ├─ 指定要读取的目标合约地址 (targets[])
+   └─ 指定要读取的 storage slots 或函数调用 (cmd)
+
+2. Endpoint 调用 ReadLib1002.send()
+   ├─ 生成 cmd[] (EVMCallRequestV1)
+   ├─ 计算并存储 cmdHash = keccak256(cmd)
+   │   → 防止 DVN 伪造请求
+   │   → 防止 reorg 攻击
+   ├─ 收取费用（支付给 Pull DVN）
+   └─ 返回 MessagingReceipt
+
+3. Pull DVN 监听 lzRead 请求（链下服务）
+   ├─ 读取目标链的 ReadLib1002 请求
+   ├─ 访问源链的 archival node
+   ├─ 读取指定区块高度的 storage slots
+   ├─ 执行 Compute（可选，链下计算）
+   └─ 验证 cmdHash 正确性
+
+4. Pull DVN 调用目标链 ReadLib1002.verify()
+   ├─ 提交读取到的数据
+   ├─ 验证 cmdHash 匹配
+   └─ 记录 DVN 验证状态
+
+5. 当 Required + Optional DVNs 达到阈值
+   ├─ commitVerification()
+   └─ Endpoint.verify() → Endpoint.lzReceive()
+
+6. 目标链 OApp._lzReceive() 接收查询结果
+   └─ 处理读取到的链上数据
+```
+
+**EVMCallRequestV1 结构**:
+```solidity
+struct EVMCallRequestV1 {
+    uint16 appCmdLabel;         // APP_CMD_LABEL_READ (1) 或 APP_CMD_LABEL_COMPUTE_WITH_READ (2)
+    uint32 targetEid;           // 要读取的目标链 EID
+    uint256 blockNumber;        // 要读取的区块高度
+    address[] targets;          // 要读取的目标合约地址列表
+    bytes cmd;                  // 读取命令（storage slots 或函数调用）
+}
+
+// 读取示例
+cmd = [
+    EVMCallRequestV1({
+        appCmdLabel: APP_CMD_LABEL_READ,           // 1 = 读取
+        targetEid: 30101,                          // Ethereum
+        blockNumber: 12345678,                     // 指定区块
+        targets: [0x123...],                       // 目标合约
+        cmd: abi.encode(abi.encodeWithSignature("balanceOf(address)", user))
+    })
+];
+
+// Compute 示例（链下计算）
+cmd = [
+    EVMCallRequestV1({
+        appCmdLabel: APP_CMD_LABEL_COMPUTE_WITH_READ,  // 2 = 计算
+        targetEid: 30101,
+        blockNumber: 12345678,
+        targets: [addr1, addr2, addr3],            // 读取多个地址
+        cmd: abi.encode(computeFunction)           // 链下执行 sum(balances)
+    })
+];
+```
+
+**cmdHash 安全机制**:
+```solidity
+// ReadLib1002.send() - 存储 cmdHash
+function send(Packet calldata _packet, bytes calldata _options, bool _payInLzToken)
+    external onlyEndpoint returns (MessagingFee memory, bytes memory)
+{
+    // 安全约束：Receiver 必须等于 Sender
+    require(
+        AddressCast.toBytes32(_packet.sender) == _packet.receiver,
+        "ReadLib: invalid receiver"
+    );
+
+    // 计算并存储 cmdHash，防止伪造
+    bytes32 cmdHash = keccak256(_packet.message);
+    cmdHashLookup[_packet.sender][_packet.dstEid][_packet.nonce] = cmdHash;
+
+    // ... 计算费用和支付 Pull DVN
+}
+
+// ReadLib1002.commitVerification() - 验证 cmdHash
+function commitVerification(bytes calldata _packetHeader, bytes32 _cmdHash, bytes32 _payloadHash)
+    external
+{
+    // 验证 cmdHash 匹配（防止 DVN 伪造请求）
+    require(
+        cmdHashLookup[receiver][srcEid][nonce] == _cmdHash,
+        "Invalid cmdHash"
+    );
+
+    // 检查 DVN 验证是否达到阈值
+    require(
+        _checkVerifiable(config, headerHash, _cmdHash, _payloadHash),
+        "Not verifiable"
+    );
+
+    // 提交到 Endpoint
+    ILayerZeroEndpointV2(endpoint).verify(origin, receiver, _payloadHash);
+}
+```
+
+**Pull DVN 特殊要求**:
+```
+Pull DVN 与 Push DVN 的区别:
+
+Push DVN:
+- 监听源链 PacketSent 事件
+- 运行 full node 即可
+- 读取最新区块数据
+- 成本较低
+
+Pull DVN:
+- 接收目标链 lzRead 请求（反向）
+- 必须运行 archival node ⚠️
+- 读取历史区块状态
+- 成本极高（Ethereum archival node: 12TB+）
+
+当前 Pull DVN 运营者:
+- LayerZero Labs Pull DVN
+- Nethermind Pull DVN
+⚠️ 仅 2 个运营者，高度中心化
+```
+
+**Compute 功能（链下计算）**:
+```
+Compute 功能允许 Pull DVN 在读取数据后执行链下计算（map-reduce）:
+
+Use Case 示例:
+- 读取多个地址的 balances，计算总和
+- 读取多个 DEX 的价格，计算 TWAP
+- 读取多个治理合约的投票，聚合结果
+
+⚠️ Critical 风险:
+- Compute 结果无法在链上验证
+- 完全信任 Pull DVN 诚实计算
+- 恶意 DVN 可篡改计算结果
+- 不建议用于高价值场景
+```
+
+**lzRead 使用场景**:
+```
+✅ 适用场景:
+1. 跨链价格聚合
+   - 从多条链读取 DEX 价格
+   - 计算跨链 TWAP
+   - 用于 oracle 和定价
+
+2. 治理投票查询
+   - 读取其他链上的投票权重
+   - 实现全链治理
+   - DAO 跨链决策
+
+3. NFT 所有权验证
+   - 读取源链 NFT 余额
+   - 验证所有权后在目标链 mint
+   - 跨链 NFT 空投
+
+4. 跨链数据仪表盘
+   - 聚合多链数据
+   - 统计分析
+   - 低风险场景
+
+❌ 不适用场景:
+1. 高价值资产桥接 (不可验证)
+2. 清算触发 (时间敏感)
+3. 关键业务逻辑 (信任风险)
+4. 高 reorg 风险链 (状态不稳定)
+```
+
+**lzRead Critical 风险**:
+```
+🔴 CRITICAL: Pull DVN 中心化
+- 仅 2 个 Pull DVN 运营者
+- archival node 成本高（12TB+）
+- 难以去中心化
+- 攻击阈值: 2 个 DVN 同时离线或串通
+
+🔴 CRITICAL: Compute 不可验证
+- 链下计算结果无法验证
+- 完全信任 DVN 诚实
+- 恶意 DVN 可返回错误结果
+
+🔴 CRITICAL: 历史状态 Reorg
+- 读取的区块可能被 reorg
+- 状态可能发生变化
+- 需等待 finality（Ethereum: 64+ blocks）
+
+🟡 MEDIUM: 跨链时钟同步
+- block.number 在不同链上增长速度不同
+- 需使用 block.timestamp
+```
+
+**最佳实践**:
+```
+✅ 仅用于低风险场景（统计、仪表盘）
+✅ 等待足够 confirmations（Ethereum: 64+）
+✅ 实施 fallback 机制（lzRead 失败时使用 oracle）
+✅ 配置多个 Pull DVNs（虽然目前只有 2 个）
+❌ 禁止在资产桥接、清算触发等关键功能中使用
+❌ 禁止使用 Compute 处理高价值数据
 ```
 
 ### 5.3 Message Library 的可配置性
